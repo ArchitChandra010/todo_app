@@ -7,6 +7,8 @@ const User = require('./models/User.model');
 const jwt = require('jsonwebtoken');
 const res = require('express/lib/response');
 const authMiddleware = require('./middlewares/auth.middlewares');
+const { createTaskSchema } = require('./validations/task.validation');
+const { updateTaskSchema } = require('./validations/task.validation');
 
 
 const { status } = require('express/lib/response');
@@ -274,11 +276,15 @@ app.get('/protected', authMiddleware, async (req,res) => {
 app.post('/tasks', authMiddleware, async (req, res) =>
 {
   try{
-    const{ title, description } = req.body;
+    const{ error, value } =createTaskSchema.validate(req.body);
+
+    if(error)
+    {
+      return res.status(400).json({ error : error.details[0].message})
+    }
 
     const task = new Task({
-      title,
-      description,
+      ...value,
       owner: req.user.id
     });
 
@@ -311,39 +317,42 @@ app.patch('/tasks/:id', authMiddleware, async (req, res) => {
     console.log(req.body);
     
     //validate ObjectID
-    if(!isValidObjectId(req.params.id))
+    if(!mongoose.Types.ObjectId.isValid(req.params.id))
     {
       return res.status(400).json({ error : 'Invalid Task ID format' });
     }
 
-    const allowedUpdates = ['title', 'description', 'completed'];
-    const updates = {};
-    console.log('JWT USER:', req.user.id);
-    console.log('TASK ID:', req.params.id);
+   const { error , value } = updateTaskSchema.validate(req.body);
 
-    for(const key of allowedUpdates)
-    {
-      if(req.body[key] !== undefined)
-      {
-        updates[key] = req.body[key];
-      }
-    }
-
-    if(Object.keys(updates).length ===0)
-    {
-      return res.status(400).json({ error : 'No valid fields provided for update' });
-    }
-
+   if(error)
+   {
+    return res.status(400).json({ error: error.details[0].message }); 
+   }
+    // for(const key of allowedUpdates)
+    // {
+    //   if(req.body[key] !== undefined)
+    //   {
+    //     updates[key] = req.body[key];
+    //   }
+    // }
 
     const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, owner: req.user.id },
-      { $set: updates },
-      { new: true }
+      
+        {_id: req.params.id, owner: req.user.id},
+        { set: value},
+        {new: true}
+      
     );
+
+    // if(Object.keys(updates).length ===0)
+    // {
+    //   return res.status(400).json({ error : 'No valid fields provided for update' });
+    // }
+
+    
     if (!task) {
       return res.status(404).json({ error: 'Task not found or unauthorized' });
     }
-
 
     res.json(task);
   
