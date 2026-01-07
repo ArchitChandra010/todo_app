@@ -11,9 +11,11 @@ const createTaskSchema= Joi.object({
 }).unknown(false); //disallow extra fields
 
 const updateTaskSchema = Joi.object({
-    title: Joi.string().trim().min(1).optional,
+    
     description: Joi.string().trim().optional(),
-    completed: Joi.boolean().optional()
+    completed: Joi.boolean().optional(),
+    toggle : Joi.boolean().optional(),
+    title : Joi.string().trim().min(1).optional(),
 })
 .min(1)
 .unknown(false); //disallow extra fields
