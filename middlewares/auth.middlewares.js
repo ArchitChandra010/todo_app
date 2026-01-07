@@ -16,7 +16,7 @@ const authMiddleware = (req, res , next) => {
             return res.status(401).json({ error : 'Invalid Authentication format'});
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
+        
         req.user ={
             id : decoded.id,
             role : decoded.role

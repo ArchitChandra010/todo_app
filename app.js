@@ -11,6 +11,13 @@ const { createTaskSchema } = require('./validations/task.validation');
 const { updateTaskSchema } = require('./validations/task.validation');
 
 
+const errorHandler = require('./middlewares/error.middleware.js');  
+
+
+
+
+
+
 const { status } = require('express/lib/response');
 require('dotenv').config();
 
@@ -22,7 +29,7 @@ app.use(bodyParser.json());
 
 //objectId validation utility function
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id); 
-
+ 
 mongoose
   .connect(MONGOURL)
   .then(() => {
@@ -205,26 +212,32 @@ app.post('/auth/register' , async(req,res) => {
 });
 
 
-app.post('/auth/login', async (req,res) => {
+app.post('/auth/login', async (req,res, next) => {
   try 
   {
     const {email, password } = req.body;
 
     if(!email || !password)
     {
-      return res.status(400).json({ error: 'Email and password are required ' });
+      const err = new Error('Email and Password are required');
+      err.statusCode = 400;
+      return next(err);
     }
 
     const user = await User.findOne({email});
     if(!user)
     {
-      return res.status(401).json({ error: 'User not found Invalid credentials'});
+      const err = new Error('User not found Invalid credentials');
+      err.statusCode = 401;
+      return next(err);
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if(!isPasswordValid)
     {
-      return res.status(401).json({ error : 'Password not matching Invalid Credentials'});
+      const err = new Error('Password not matching Invalid Credentials');
+      err.statusCode = 401;
+      return next(err);
     }
 
     const token = jwt.sign(
@@ -253,8 +266,8 @@ app.post('/auth/login', async (req,res) => {
   }
   catch (error)
   {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    next(error);
+    // res.status(500).json({ error: error.message + ' Internal Server Error' });
   }
 });
 
@@ -273,14 +286,16 @@ app.get('/protected', authMiddleware, async (req,res) => {
 
 //adding jwt for task functionality above may be obsolute
 
-app.post('/tasks', authMiddleware, async (req, res) =>
+app.post('/tasks', authMiddleware, async (req, res, next) =>
 {
   try{
     const{ error, value } =createTaskSchema.validate(req.body);
 
     if(error)
     {
-      return res.status(400).json({ error : error.details[0].message})
+      const err = new Error(error.details[0].message);
+      err.statusCode = 400;
+      return next(err);
     }
 
     const task = new Task({
@@ -294,7 +309,7 @@ app.post('/tasks', authMiddleware, async (req, res) =>
 
   }catch(error)
   {
-    res.status(500).json({error : error.message + 'Internal Server Error: Authentication Failed' });
+    next(error);
   }
 });
 
@@ -302,44 +317,43 @@ app.get('/tasks', authMiddleware, async (req,res) => {
   try 
   {
     const tasks= await Task.find({owner: req.user.id});
-    res.json(tasks);
+    return res.json(tasks);
   }
   catch(error)
   {
-    res.status(500).json({error : error.message + ' Internal Server Error:token missing' });
+    next(error);
   }
 });
 
 
-app.patch('/tasks/:id', authMiddleware, async (req, res) => {
+app.patch('/tasks/:id', authMiddleware, async (req, res, next) => {
   try {
     
-    console.log(req.body);
+    // console.log(req.body);
+
     
     //validate ObjectID
     if(!mongoose.Types.ObjectId.isValid(req.params.id))
     {
-      return res.status(400).json({ error : 'Invalid Task ID format' });
+      const error = new Error('Invalid Task ID format');
+      error.statusCode = 400;
+      return next(error);
     }
 
    const { error , value } = updateTaskSchema.validate(req.body);
 
    if(error)
    {
-    return res.status(400).json({ error: error.details[0].message }); 
+    const errObj = new Error(error.details[0].message);
+    errObj.statusCode = 400;
+    return next(errObj); 
    }
-    // for(const key of allowedUpdates)
-    // {
-    //   if(req.body[key] !== undefined)
-    //   {
-    //     updates[key] = req.body[key];
-    //   }
-    // }
+
 
     const task = await Task.findOneAndUpdate(
       
         {_id: req.params.id, owner: req.user.id},
-        { set: value},
+        { $set: value},
         {new: true}
       
     );
@@ -351,13 +365,15 @@ app.patch('/tasks/:id', authMiddleware, async (req, res) => {
 
     
     if (!task) {
-      return res.status(404).json({ error: 'Task not found or unauthorized' });
+      const errObj = new Error("Task not found or authorized");
+      errObj.statusCode = 404;
+      return next(errObj);
     }
 
     res.json(task);
   
   } catch (err) {
-    res.status(500).json({ error: err.message + ' Internal Server Error:token missing' });
+    next(err);
   }
 });
 
@@ -366,9 +382,11 @@ app.patch('/tasks/:id', authMiddleware, async (req, res) => {
 app.delete('/tasks/:id', authMiddleware, async (req, res) => {
   try {
     //object Validation
-    if(!isValidObjectId(req.params.id))
+    if(!mongoose.Types.ObjectId.isValid(req.params.id))
     {
-      return res.status(400).json({ error : 'Invalid Task ID format' });
+      const err = new Error("Invalid Task ID");
+      err.statusCode = 400;
+      return next(err);
     }
 
     const task = await Task.findOneAndDelete({
@@ -377,13 +395,17 @@ app.delete('/tasks/:id', authMiddleware, async (req, res) => {
     });
 
     if (!task) {
-      return res.status(404).json({ error: 'Task not found or unauthorized' });
+      const err = new Error("Task not found or unauthorized");
+      err.statusCode = 404;
+      return next(err);
     }
 
     res.json({ message: 'Task deleted successfully' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 //------------------- END JWT Implementation for viewing Task for paticular user------------------//
+
+app.use(errorHandler);
