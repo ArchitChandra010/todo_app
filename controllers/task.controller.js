@@ -58,6 +58,8 @@ exports.toggleTask = async (req, res, next) =>
             error.statusCode = 400;
             return next(error);
         }
+        
+        
         const {error , value} = updateTaskSchema.validate(req.body);
         if(error)
         {
@@ -80,8 +82,8 @@ exports.toggleTask = async (req, res, next) =>
        }
        else{
         if(value.completed !== undefined) task.completed = value.completed;
-        if(value.title) task.title = value.title;
-        if(value.description) task.description = value.description;
+        if(value.title !== undefined) task.title = value.title;
+        if(value.description !== undefined) task.description = value.description;
        }
 
        await task.save();
@@ -98,7 +100,8 @@ exports.toggleTask = async (req, res, next) =>
 // DELETE TASK
 exports.deleteTask = async (req, res, next) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const taskId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
       const err = new Error("Invalid task ID");
       err.statusCode = 400;
       return next(err);
