@@ -123,3 +123,72 @@ exports.deleteTask = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.filterTasks = async (req, res, next) => {
+    try
+    {
+        const UserId = req.user.id;
+        
+        const {
+        completed,
+        priority,
+        tags,
+        dueBefore,
+        dueAfter,
+        search,
+        sortBy = "createdAt",
+        order = "desc",
+        page = 1,
+        limit = 10
+        } = req.query;
+
+        const matchStage = { owner : new mongoose.Types.ObjectId(UserId) };
+
+        //Completed filter
+        if(completed !== undefined)
+            matchStage.completed = completed === "true";
+
+        //Priority filter
+        if(priority)
+            matchStage.priority = priority;
+
+        //Tag filter (single)
+        if(dueBefore || dueAfter)
+        {
+            matchStage.$or = [
+                { title : { $regex : search, $options: 'i' } },
+                { description : { $regex : search, $options: 'i' } }
+            ];
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const pipeline = [
+            { $match: matchStage },
+            { $sort: { [sortBy]: order === "desc" ? -1 : 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit)}
+        ];
+
+        //RUN PIPELINE
+        const tasks = await Task.aggregate(pipeline);
+
+        //Count total for pagination info
+        const totalCount = await Task.countDocuments(matchStage);
+
+        return res.json({
+            page: parseInt(page),
+            limit : parseInt(limit),
+            totalTasks: totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+            tasks
+        });
+
+
+
+
+    }catch(error)
+    {
+        next(error);
+    }
+}
