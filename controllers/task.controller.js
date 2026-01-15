@@ -1,5 +1,6 @@
 const Task = require("../models/Task.model");
 const mongoose = require("mongoose");
+const redisClient = require("../config/redis");
 const { createTaskSchema, updateTaskSchema } = require("../validations/task.validation");
 
 // Create Task
@@ -21,6 +22,8 @@ exports.createTask = async (req,res,next) =>
             owner: req.user.id,
 
         });
+        //Redis flush
+        await redisClient.flushAll();
         return res.status(201).json({
             message: "Task created successfully",
             task
@@ -86,7 +89,9 @@ exports.toggleTask = async (req, res, next) =>
         if(value.description !== undefined) task.description = value.description;
        }
 
-       await task.save();
+        //Redis flush
+        await redisClient.flushAll();
+        await task.save();
         return res.json(task);
 
        
@@ -118,6 +123,9 @@ exports.deleteTask = async (req, res, next) => {
       return next(err);
     }
 
+    //Redis flush
+    await redisClient.flushAll();
+
     return res.json({ message: "Task deleted" });
   } catch (err) {
     next(err);
@@ -133,6 +141,7 @@ exports.filterTasks = async (req, res, next) => {
         completed,
         priority,
         tags,
+        mode = "any",
         dueBefore,
         dueAfter,
         search,
@@ -142,6 +151,18 @@ exports.filterTasks = async (req, res, next) => {
         limit = 10
         } = req.query;
 
+        //Create Cached key based on User + all query params
+        const cacheKey = 'tasks:${userId}:${JSON.stringify(req.query)}';
+
+        //try to retrive cached result
+        const cached = await redisClient.get(cacheKey);
+        if(cached)
+        {
+            console.log("Returning from Redis Cache");
+            return res.json(JSON.parse(cached));
+        }
+
+        //Build match stage for aggragation
         const matchStage = { owner : new mongoose.Types.ObjectId(UserId) };
 
         //Completed filter
@@ -152,8 +173,30 @@ exports.filterTasks = async (req, res, next) => {
         if(priority)
             matchStage.priority = priority;
 
-        //Tag filter (single)
+        //Tags filter
+        if(tags)
+        {
+            const tagList = tags.split(",");
+
+            if(mode === "all")
+                matchStage.tags = { $all: tagList };
+            else
+                matchStage.tags = { $in: tagList };
+        }
+
+
+        //date filters
         if(dueBefore || dueAfter)
+        {
+            matchStage.dueDate = {};
+            if(dueAfter)
+                matchStage.dueDate.$gte = new Date(dueAfter);
+            if(dueBefore)
+                matchStage.dueDate.$lte = new Date(dueBefore);
+        }
+
+        //Full text Search
+        if(search)
         {
             matchStage.$or = [
                 { title : { $regex : search, $options: 'i' } },
@@ -176,19 +219,36 @@ exports.filterTasks = async (req, res, next) => {
         //Count total for pagination info
         const totalCount = await Task.countDocuments(matchStage);
 
-        return res.json({
+        const response = {
             page: parseInt(page),
             limit : parseInt(limit),
             totalTasks: totalCount,
             totalPages: Math.ceil(totalCount / limit),
             tasks
+        };
+
+        await redisClient.set(cacheKey, JSON.stringify(response), {
+            EX: 300 //TTL=300 SECONDS(5MIN)
         });
 
+        console.log(" Saved to Redis Cache");
 
+        return res.json(response);
 
 
     }catch(error)
     {
         next(error);
     }
-}
+};
+
+
+exports.redis_test =  async (req, res) => {
+  try {
+    await redisClient.set("test", "hello");
+    const value = await redisClient.get("test");
+    res.json({ message: value });
+  } catch (err) {
+    next(err);
+  }
+};

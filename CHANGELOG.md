@@ -1,3 +1,66 @@
+---
+
+## [v0.5.0] – Advanced Filtering, Aggregation & Redis Caching
+**Date: 2026-01-11**
+
+### 🚀 New Features
+- Added advanced filtering using MongoDB Aggregation Pipeline
+- Implemented multi-tag filtering with support for:
+  - `mode=any` → tasks matching **any** tag
+  - `mode=all` → tasks matching **all** tags
+- Added dynamic sorting for any field (`createdAt`, `priority`, `dueDate`, etc.)
+- Added pagination using `page` + `limit`
+- Added full-text-like search using regex on title & description
+- Added date filters:  
+  - `dueBefore=YYYY-MM-DD`
+  - `dueAfter=YYYY-MM-DD`
+
+### 🔧 Redis Caching (redis@5.10.0)
+- Integrated Redis client for caching filtered results
+- Cached responses keyed by user + query string
+- Implemented automatic cache invalidation on:
+  - task creation
+  - task update/toggle
+  - task deletion
+- Added TTL (time-to-live) of 5 minutes per cache entry
+- Improved server performance by reducing MongoDB queries
+
+### 🗂 Schema Enhancements
+- Modified Task schema to include:
+  - `priority: low | medium | high`
+  - `tags: [String]`
+  - `dueDate: Date`
+- Added MongoDB indexes:
+  - `{ owner: 1 }`
+  - `{ priority: 1 }`
+  - `{ dueDate: 1 }`
+  - `{ tags: 1 }`
+  - `{ createdAt: -1 }`
+- Ensures faster sorting, pagination, and tag filtering
+
+### 🛠 Controller Improvements
+- Restructured filter controller to build dynamic matchStage
+- Improved pipeline:
+  - `$match`
+  - `$sort`
+  - `$skip`
+  - `$limit`
+- Added `totalTasks` + `totalPages` response structure
+- Added caching logic wrapping aggregation pipeline
+
+### 🧪 Testing & Debugging Improvements
+- Tested all filtering scenarios:
+  - filtering by priority
+  - multi-tag filters
+  - searching by title
+  - pagination navigation
+  - date-range queries
+- Confirmed Redis hits & misses with console logs
+- Verified aggregation output consistency
+
+---
+
+
 ## [v0.4.0] – Refresh Token System, Logout, and Token Security
 Date: 2026-01-10
 
