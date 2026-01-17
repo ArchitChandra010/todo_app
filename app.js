@@ -6,6 +6,8 @@ require("dotenv").config();
 const authRoutes = require("./routes/auth.routes");
 const taskRoutes = require("./routes/task.routes");
 const errorHandler = require("./middlewares/error.middleware");
+const startRedisLRMMonitor = require("./utils/redis-lru.util");
+startRedisLRMMonitor();
 
 const app = express();
 

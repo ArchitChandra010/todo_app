@@ -2,6 +2,7 @@ const Task = require("../models/Task.model");
 const mongoose = require("mongoose");
 const redisClient = require("../config/redis");
 const { createTaskSchema, updateTaskSchema } = require("../validations/task.validation");
+const { invalidateTaskCache } = require("../utils/cache.util");
 
 // Create Task
 exports.createTask = async (req,res,next) => 
@@ -23,7 +24,8 @@ exports.createTask = async (req,res,next) =>
 
         });
         //Redis flush
-        await redisClient.flushAll();
+        await invalidateTaskCache(req.user.id);
+
         return res.status(201).json({
             message: "Task created successfully",
             task
@@ -80,7 +82,8 @@ exports.toggleTask = async (req, res, next) =>
             return next(error);
         }
 
-       if(value.toggle){
+        // apply toggle/update logic
+       if(value.toggle === true){
         task.completed = !task.completed;
        }
        else{
@@ -90,9 +93,15 @@ exports.toggleTask = async (req, res, next) =>
        }
 
         //Redis flush
-        await redisClient.flushAll();
+        // await redisClient.flushAll();
         await task.save();
-        return res.json(task);
+
+        await invalidateTaskCache(req.user.id);
+
+        return res.json({
+            message : "Task updated successfully",
+            task}
+        );
 
        
     }catch(error)
@@ -124,9 +133,11 @@ exports.deleteTask = async (req, res, next) => {
     }
 
     //Redis flush
-    await redisClient.flushAll();
+    // await redisClient.flushAll();
+    await invalidateTaskCache(req.user.id);
 
-    return res.json({ message: "Task deleted" });
+    return res.json({ message: "Task Deleted Successfully" });
+
   } catch (err) {
     next(err);
   }
@@ -152,7 +163,7 @@ exports.filterTasks = async (req, res, next) => {
         } = req.query;
 
         //Create Cached key based on User + all query params
-        const cacheKey = 'tasks:${userId}:${JSON.stringify(req.query)}';
+        const cacheKey = `tasks:${UserId}:${JSON.stringify(req.query)}`;
 
         //try to retrive cached result
         const cached = await redisClient.get(cacheKey);

@@ -1,4 +1,49 @@
 ---
+## [v0.5.1] – Advanced Redis Caching, LRU Eviction, and Observability
+Date: 2026-01-18
+
+### Redis Caching Enhancements
+- Implemented Redis-backed caching for task filtering endpoint
+- Introduced user-scoped cache keys to prevent cross-user data leakage
+- Normalized query parameters before cache key generation to avoid stale or incorrect cache hits
+- Added TTL-based caching strategy for filtered task results
+
+### Cache Invalidation Strategy
+- Replaced unsafe global cache flushing (`FLUSHALL`)
+- Implemented targeted cache invalidation per user using Redis `SCAN` + pattern matching
+- Ensured cache invalidation on task create, update, toggle, and delete operations
+- Preserved cache consistency without impacting other users
+
+### LRU Eviction & Monitoring
+- Configured Redis to use native `allkeys-lru` eviction policy
+- Enabled Redis keyspace notifications for eviction events
+- Added dedicated Redis Pub/Sub subscriber for LRU eviction monitoring
+- Logged evicted cache keys with reason (`LRU`) for observability
+
+### Logging & Observability
+- Implemented structured JSON logging for Redis events
+- Added timestamped, level-based logs (info/error)
+- Logged Redis eviction events to both console and rotating log files
+- Implemented file-based logging with automatic rotation at 10MB size limit
+- Organized logs for easier debugging and future integration with log aggregators
+
+### Bug Fixes & Stability Improvements
+- Fixed cache key interpolation issues caused by incorrect string literals
+- Resolved incorrect cache reuse across different filter parameters
+- Corrected pagination inconsistencies caused by stale cached responses
+- Improved defensive handling of query parameters and numeric parsing
+
+### Architecture & Maintainability
+- Preserved existing Redis wrapper API (`get/set/del/flushAll`)
+- Isolated Redis Pub/Sub logic from cache access logic
+- Improved separation of concerns between caching, logging, and controllers
+- Ensured Redis observability features do not interfere with application logic
+
+### Notes
+- Redis eviction logs only appear when actual memory eviction occurs (expected behavior)
+- Cache observability validated via Redis CLI and application logs
+- Foundation laid for future enhancements such as cache metrics, rate limiting, and monitoring dashboards
+
 
 ## [v0.5.0] – Advanced Filtering, Aggregation & Redis Caching
 **Date: 2026-01-11**
