@@ -14,11 +14,12 @@ const {
 router.post("/register",rateLimiter({
     windowSeconds: 15*60,
     maxRequests: 5,
-    keyPrefix: "rl:register"
+    keyPrefix: "rl:register",
+    allowlistIPs: ["127.0.0.1"]
 }), register);
 router.post("/login",rateLimiter({
     windowSeconds: 15*60,
-    maxRequests: 10,
+    maxRequests: 100  ,
     keyPrefix: "rl:login"
 }), login);
 router.post("/refresh", refresh);
