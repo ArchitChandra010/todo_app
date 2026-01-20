@@ -1,4 +1,59 @@
----
+[v0.5.2] – Redis Rate Limiting (Hybrid IP + User)
+
+Date: 2026-01-18
+
+🔒 Authentication Rate Limiting
+
+-Implemented Redis-backed rate limiting for authentication endpoints
+
+-Applied rate limiting only to /auth/register and /auth/login
+
+-Used configurable middleware factory for future scalability
+
+-Enforced different limits per endpoint:
+
+-Register → 5 requests / 15 minutes
+
+-Login → 10 requests / 15 minutes
+
+⚙️ Hybrid Limiting Strategy
+
+-Combined IP-based and user-based rate limiting
+
+-Prevented brute-force attacks while avoiding shared-IP lockouts
+
+-Automatically switches to user-based limiting when user context is available
+
+-Designed to extend easily to other routes (tasks, admin, APIs)
+
+🧠 Redis Integration
+
+-Leveraged Redis atomic operations (INCR, EXPIRE) for accuracy
+
+-Used centralized Redis client instance across the application
+
+-Implemented fail-open behavior to prevent Redis outages from blocking requests
+
+-Avoided global cache flushes to preserve system stability
+
+🧱 Middleware Architecture
+
+-Added reusable rateLimit.middleware.js
+
+-Ensured zero impact on existing JWT, refresh token, and logout flows
+
+-Maintained separation of concerns (middleware-only enforcement)
+
+-No controller logic duplication or coupling
+
+🐛 Stability & Safety
+
+-No breaking changes to existing routes or controllers
+
+-All existing authentication, task, and caching logic remains intact
+
+-Rate limiting scoped narrowly to reduce risk during rollout
+
 ## [v0.5.1] – Advanced Redis Caching, LRU Eviction, and Observability
 Date: 2026-01-18
 

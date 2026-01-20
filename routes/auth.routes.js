@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const rateLimiter = require("../middlewares/rateLimit.middleware")
 
 const { 
     register,
@@ -8,8 +9,18 @@ const {
     logout
 } = require("../controllers/auth.controller");
 
-router.post("/register", register);
-router.post("/login", login);
+
+
+router.post("/register",rateLimiter({
+    windowSeconds: 15*60,
+    maxRequests: 5,
+    keyPrefix: "rl:register"
+}), register);
+router.post("/login",rateLimiter({
+    windowSeconds: 15*60,
+    maxRequests: 10,
+    keyPrefix: "rl:login"
+}), login);
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 

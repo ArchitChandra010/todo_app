@@ -43,11 +43,11 @@ const taskSchema = new mongoose.Schema({
 { timestamps : true }
 );
   
-taskSchema.index({ owner : 1});
-taskSchema.index({ priority : 1});
-taskSchema.index({ dueDate: 1});
-taskSchema.index({ tags : 1});
-taskSchema.index({ createdAt : 1});
+taskSchema.index({ owner : 1, priority : 1, completed: 1});
+taskSchema.index({ owner : 1, tags: 1});
+taskSchema.index({owner: 1, dueDate: 1});
+// taskSchema.index({ tags : 1});
+// taskSchema.index({ createdAt : 1});
 
 taskSchema.index({ title : "text", description : "text" });
 

@@ -12,9 +12,12 @@ let client;
     await client.connect();
 })();
 
-module.exports = {
-    get: (...args) => client.get(...args),
-    set: (...args) => client.set(...args),
-    del: (...args) => client.del(...args),
-    flushAll: (...args) => client.flushAll(...args),
-};
+// module.exports = {
+//     get: (...args) => client.get(...args),
+//     set: (...args) => client.set(...args),
+//     del: (...args) => client.del(...args),
+//     flushAll: (...args) => client.flushAll(...args),
+
+// };
+
+module.exports = client;
