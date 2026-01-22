@@ -74,7 +74,14 @@ exports.toggleTask = async (req, res, next) =>
         }
 
 
-        const task = await Task.findOne({_id: taskId, owner: req.user.id});
+        const task = await Task.findOne({
+            _id: taskId, 
+            $or: [
+                {owner: req.user.id},
+                {collaborators: req.user.id}
+            ]
+        });
+
         if(!task)
         {
             const error = new Error("Task not found");
@@ -121,16 +128,29 @@ exports.deleteTask = async (req, res, next) => {
       return next(err);
     }
 
-    const task = await Task.findOneAndDelete({
+    const task = await Task.findOne({
       _id: req.params.id,
-      owner: req.user.id,
+      $or: [
+        {owner: req.user.id},
+        {collaborators: req.user.id}
+      ]
     });
+
+    
 
     if (!task) {
       const err = new Error("Task not found or unauthorized");
       err.statusCode = 404;
       return next(err);
     }
+
+    if(!task.owner.equals(req.user.id)) {
+        const err = new Error("Only owner can delete task");
+        err.statusCode = 403;
+        return next(err);
+    }
+
+    await task.deleteOne();
 
     //Redis flush
     // await redisClient.flushAll();
@@ -174,8 +194,13 @@ exports.filterTasks = async (req, res, next) => {
         }
 
         //Build match stage for aggragation
-        const matchStage = { owner : new mongoose.Types.ObjectId(UserId) };
-
+        const matchStage = {
+            $or:
+            [
+                {owner : new mongoose.Types.ObjectId(UserId)},
+                {collaborators: new mongoose.Types.ObjectId(UserId)}
+            ]
+        };
         //Completed filter
         if(completed !== undefined)
             matchStage.completed = completed === "true";
@@ -262,4 +287,88 @@ exports.redis_test =  async (req, res) => {
   } catch (err) {
     next(err);
   }
+};
+
+
+exports.addCollaborator = async (req, res, next) => {
+    try
+    {
+        const {userId} = req.body;
+        const taskId = req.params.id;
+        
+        if(!mongoose.Types.ObjectId.isValid(taskId))
+        {
+            const err = new Error("Invalid Task ID");
+            err.statusCode = 400;
+            return next(err);
+        }
+
+        const task = await Task.findOne({
+            _id : taskId,
+            owner: req.user.id
+        });
+
+        if(!task)
+        {
+            throw Object.assign(new Error("Task not found or Unauthorized"), { statusCode: 404});
+        }
+
+        if(!task.collaborators.includes(userId))
+        {
+            task.collaborators.push(userId);
+            await task.save();
+        }
+
+        await invalidateTaskCache(req.user.id);
+
+        return res.json({ message: "Collaborator added", task});
+
+    }catch(error)
+    {
+        next(error);
+    }
+};
+
+
+exports.uploadAttachment = async (req, res, next) => {
+    try 
+    {
+        const taskId = req.params.id;
+
+        if(!mongoose.Types.ObjectId.isValid(taskId))
+        {
+            const err = new Error("Invalid Task ID");
+            err.statusCode = 400;
+            return next(err);
+        }
+
+        const task = await Task.findOneAndDelete({
+            _id : taskId,
+            $or: [
+                {owner : req.user.id},
+                {collaborators: req.user.id}
+            ]
+        });
+
+        if(!task)
+        {
+            throw Object.assign(new Error("Task not Found"), {statusCode : 404});
+        }
+
+        task.attachments.push({
+            filename : req.file.filename,
+            url: `/upload/tasks/${req.file.filename}`,
+            mimeType: req.file.mimeType,
+            size: req.file.size
+        });
+
+        await task.save();
+
+        await invalidateTaskCache(req.user.id);
+
+        return res.json({ message : "Attachment Uploaded", task});
+    }catch(error)
+    {
+        next(error);
+    }
 };
