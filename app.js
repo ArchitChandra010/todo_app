@@ -3,10 +3,16 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 require("dotenv").config();
 
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 const authRoutes = require("./routes/auth.routes");
 const taskRoutes = require("./routes/task.routes");
 const errorHandler = require("./middlewares/error.middleware");
 const startRedisLRMMonitor = require("./utils/redis-lru.util");
+
+
+
+
 startRedisLRMMonitor();
 
 const app = express();
@@ -28,5 +34,7 @@ mongoose
 app.listen(process.env.PORT, () =>
   console.log(`Server running on port ${process.env.PORT}`)
 );
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 module.exports = app;
